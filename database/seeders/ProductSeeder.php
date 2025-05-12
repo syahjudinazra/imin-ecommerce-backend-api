@@ -11,24 +11,24 @@ class ProductSeeder extends Seeder
 {
     public function run(): void
     {
-        $electronics = Category::where('slug', 'electronics')->first();
+        $mobility = Category::where('slug', 'mobility')->first();
 
         Product::create([
-            'name' => 'Smartphone',
-            'slug' => 'smartphone',
-            'description' => 'Android smartphone',
+            'name' => 'M2-203',
+            'slug' => 'm2-203',
+            'description' => 'mobility product',
             'price' => 399.99,
             'stock' => 50,
-            'category_id' => $electronics->id
+            'category_id' => $mobility->id
         ]);
 
         Product::create([
-            'name' => 'Laptop',
-            'slug' => 'laptop',
-            'description' => 'High-end laptop',
+            'name' => 'Swift 1',
+            'slug' => 'swift-1',
+            'description' => 'smart mobility product',
             'price' => 999.99,
             'stock' => 30,
-            'category_id' => $electronics->id
+            'category_id' => $mobility->id
         ]);
     }
 }
