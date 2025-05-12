@@ -12,6 +12,24 @@ class Order extends Model
 {
     use HasFactory;
 
+    protected $fillable = [
+        'user_id',
+        'order_number',
+        'payment_method',
+        'tracking_number',
+        'courier',
+        'status',
+        'total_price',
+        'shipping_address',
+        'shipped_at',
+    ];
+
+    const STATUS = [
+        'PENDING' => 'pending',
+        'PAID' => 'paid',
+        'SHIPPED' => 'shipped',
+        'COMPLETED' => 'completed',
+    ];
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

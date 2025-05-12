@@ -19,6 +19,9 @@ return new class extends Migration
             $table->decimal('total_price', 10, 2);
             $table->text('shipping_address');
             $table->string('payment_method');
+            $table->string('tracking_number')->nullable();
+            $table->string('courier')->nullable();
+            $table->timestamp('shipped_at')->nullable();
             $table->timestamps();
         });
     }

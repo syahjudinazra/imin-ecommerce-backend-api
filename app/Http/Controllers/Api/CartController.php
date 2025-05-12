@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use Exception;
 use App\Models\CartItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 
 class CartController extends Controller
 {
@@ -14,7 +16,16 @@ class CartController extends Controller
      */
     public function index()
     {
-        return auth()->user()->cartItems()->with('product')->get();
+        try {
+            if (!Auth::check()) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
+
+            $cartItems = Auth::user()->cartItems()->with('product')->get();
+            return response()->json($cartItems);
+        } catch (Exception $e) {
+            return response()->json(['error' => 'Failed to retrieve cart items', 'message' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -22,19 +33,28 @@ class CartController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'quantity' => 'required|integer|min:1'
-        ]);
+        try {
+            if (!Auth::check()) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
 
-        $item = CartItem::updateOrCreate(
-            ['user_id' => auth()->id(), 'product_id' => $request->product_id],
-            ['quantity' => DB::raw("quantity + {$request->quantity}")]
-        );
+            $validated = $request->validate([
+                'product_id' => 'required|exists:products,id',
+                'quantity' => 'required|integer|min:1'
+            ]);
 
-        return response()->json($item, 201);
+            $item = CartItem::updateOrCreate(
+                ['user_id' => Auth::id(), 'product_id' => $validated['product_id']],
+                ['quantity' => DB::raw("quantity + {$validated['quantity']}")]
+            );
+
+            return response()->json($item, 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['error' => 'Validation failed', 'messages' => $e->errors()], 422);
+        } catch (Exception $e) {
+            return response()->json(['error' => 'Failed to store cart item', 'message' => $e->getMessage()], 500);
+        }
     }
-
     /**
      * Display the specified resource.
      */

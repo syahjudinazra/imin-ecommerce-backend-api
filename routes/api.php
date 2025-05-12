@@ -29,6 +29,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/cart/{id}', [CartController::class, 'destroy']);
 
     // Order
+    Route::post('/orders/{order}/ship', [OrderController::class, 'markAsShipped'])
+        ->middleware('role:admin');
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
 });

@@ -92,6 +92,24 @@ class OrderController extends Controller
         ]);
     }
 
+    public function markAsShipped(Request $request, Order $order)
+    {
+        $request->validate([
+            'tracking_number' => 'required',
+            'courier' => 'required'
+        ]);
+
+        $order->update([
+            'status' => Order::STATUS['SHIPPED'],
+            'tracking_number' => $request->tracking_number,
+            'courier' => $request->courier,
+            'shipped_at' => now(),
+        ]);
+
+        return response()->json(['message' => 'Order marked as shipped']);
+    }
+
+
 
     /**
      * Display the specified resource.
