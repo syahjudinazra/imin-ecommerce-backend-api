@@ -76,8 +76,7 @@ class AuthController extends Controller
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
-                'access_token' => $token,
-                'token_type' => 'Bearer',
+                'token' => $token,
                 'user' => $user
             ]);
         } catch (\Exception $e) {
@@ -98,6 +97,37 @@ class AuthController extends Controller
             return response()->json(['message' => 'Logged out successfully']);
         } catch (Exception $e) {
             return response()->json(['message' => 'An error occurred during logout.'], 500);
+        }
+    }
+
+        /**
+     * Get the currently authenticated user
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getUser(Request $request)
+    {
+        try {
+            // Check if the user is authenticated
+            if (!Auth::check()) {
+                return response()->json([
+                    'message' => 'User is not authenticated'
+                ], 401);
+            }
+
+            $data = Auth::user();
+            $data->load('roles');
+            return response()->json([
+                'data' => $data,
+            ], 200);
+
+
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Failed to retrieve user information',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }
