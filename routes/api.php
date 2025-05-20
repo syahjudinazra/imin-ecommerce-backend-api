@@ -2,29 +2,27 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\CartController;
+use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Api\ProductController;
-use App\Http\Controllers\Api\UserController;
 
 // Auth
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
-    // User
+    // current user
     Route::get('/user', [AuthController::class, 'getUser']);
 
+    //auth
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    // Only admin can manage products
-    Route::middleware('role:admin')->group(function () {
-        Route::apiResource('/products', ProductController::class)->except(['index', 'show']);
-    });
+    //products
+    Route::apiResource('/products', ProductController::class);
 
-    // Product
-    Route::get('/products', [ProductController::class, 'index']);
-    Route::get('/products/{product}', [ProductController::class, 'show']);
+    // Category
+    Route::apiResource('/categories', CategoryController::class);
 
     // Cart
     Route::get('/cart', [CartController::class, 'index']);
