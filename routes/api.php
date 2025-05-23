@@ -19,7 +19,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     //products
-    Route::apiResource('/products', ProductController::class);
+    Route::apiResource('/products', ProductController::class)->except('destroy');
 
     // Category
     Route::apiResource('/categories', CategoryController::class);
