@@ -2,10 +2,11 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\CartController;
-use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\CategoryController;
 
 // Auth
 Route::post('/register', [AuthController::class, 'register']);
@@ -19,7 +20,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     //products
-    Route::apiResource('/products', ProductController::class)->except('destroy');
 
     // Category
     Route::apiResource('/categories', CategoryController::class);
@@ -35,3 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
 });
+
+//Unauthenticated routes
+Route::apiResource('/reviews', ReviewController::class);
+Route::apiResource('/products', ProductController::class)->except('destroy');
