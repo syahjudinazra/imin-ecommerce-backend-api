@@ -23,12 +23,12 @@ class ProductController extends Controller
                 $searchTerm = $request->search;
                 $query->where(function ($q) use ($searchTerm) {
                     $q->where('name', 'LIKE', "%{$searchTerm}%")
-                      ->orWhere('description', 'LIKE', "%{$searchTerm}%")
-                      ->orWhere('price', 'LIKE', "%{$searchTerm}%")
-                      ->orWhere('stock', 'LIKE', "%{$searchTerm}%")
-                      ->orWhereHas('category', function ($categoryQuery) use ($searchTerm) {
-                          $categoryQuery->where('name', 'LIKE', "%{$searchTerm}%");
-                      });
+                        ->orWhere('description', 'LIKE', "%{$searchTerm}%")
+                        ->orWhere('price', 'LIKE', "%{$searchTerm}%")
+                        ->orWhere('stock', 'LIKE', "%{$searchTerm}%")
+                        ->orWhereHas('category', function ($categoryQuery) use ($searchTerm) {
+                            $categoryQuery->where('name', 'LIKE', "%{$searchTerm}%");
+                        });
                 });
             }
 
@@ -66,7 +66,6 @@ class ProductController extends Controller
                     'per_page' => $perPage
                 ]
             ], 200);
-
         } catch (Exception $e) {
             return response()->json([
                 'error' => 'Failed to fetch products',
@@ -97,10 +96,10 @@ class ProductController extends Controller
                 $searchTerm = $request->query;
                 $query->where(function ($q) use ($searchTerm) {
                     $q->where('name', 'LIKE', "%{$searchTerm}%")
-                      ->orWhere('description', 'LIKE', "%{$searchTerm}%")
-                      ->orWhereHas('category', function ($categoryQuery) use ($searchTerm) {
-                          $categoryQuery->where('name', 'LIKE', "%{$searchTerm}%");
-                      });
+                        ->orWhere('description', 'LIKE', "%{$searchTerm}%")
+                        ->orWhereHas('category', function ($categoryQuery) use ($searchTerm) {
+                            $categoryQuery->where('name', 'LIKE', "%{$searchTerm}%");
+                        });
                 });
             }
 
@@ -140,11 +139,15 @@ class ProductController extends Controller
                 'data' => $data,
                 'message' => 'Search completed successfully',
                 'applied_filters' => $request->only([
-                    'query', 'category_id', 'min_price', 'max_price',
-                    'in_stock', 'sort_by', 'sort_order'
+                    'query',
+                    'category_id',
+                    'min_price',
+                    'max_price',
+                    'in_stock',
+                    'sort_by',
+                    'sort_order'
                 ])
             ], 200);
-
         } catch (Exception $e) {
             return response()->json([
                 'error' => 'Search failed',
@@ -178,6 +181,8 @@ class ProductController extends Controller
                 'stock' => 'required|integer',
                 'description' => 'nullable|string',
                 'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+                'rating' => 'nullable|numeric|min:0|max:5',
+                'review_count' => 'nullable|integer|min:0',
                 'category_id' => 'required|exists:categories,id'
             ]);
 
@@ -209,6 +214,8 @@ class ProductController extends Controller
             'stock' => 'required|integer',
             'description' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'rating' => 'nullable|numeric|min:0|max:5',
+            'review_count' => 'nullable|integer|min:0',
             'category_id' => 'required|exists:categories,id'
         ]);
 
@@ -250,22 +257,21 @@ class ProductController extends Controller
         }
     }
 
-public function destroy(Product $product)
-{
-    try {
-        $product->delete();
+    public function destroy(Product $product)
+    {
+        try {
+            $product->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Product deleted successfully'
-        ], 200);
-
-    } catch (Exception $e) {
-        return response()->json([
-            'success' => false,
-            'error' => 'Failed to delete product',
-            'message' => $e->getMessage()
-        ], 500);
+            return response()->json([
+                'success' => true,
+                'message' => 'Product deleted successfully'
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to delete product',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
-}
 }

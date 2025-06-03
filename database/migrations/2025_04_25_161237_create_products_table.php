@@ -19,6 +19,8 @@ return new class extends Migration
             $table->decimal('price', 10, 2);
             $table->integer('stock');
             $table->string('image')->nullable();
+            $table->decimal('rating', 3, 2)->default(0.00);
+            $table->integer('review_count')->default(0);
             $table->foreignId('category_id')->constrained()->onDelete('cascade');
             $table->timestamps();
         });

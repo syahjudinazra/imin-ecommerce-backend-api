@@ -19,6 +19,8 @@ class ProductSeeder extends Seeder
             'description' => 'mobility product',
             'price' => 399.99,
             'stock' => 50,
+            'rating' => 4.5,
+            'review_count' => 10,
             'category_id' => $mobility->id
         ]);
 
@@ -28,6 +30,8 @@ class ProductSeeder extends Seeder
             'description' => 'smart mobility product',
             'price' => 999.99,
             'stock' => 30,
+            'rating' => 3,
+            'review_count' => 8,
             'category_id' => $mobility->id
         ]);
     }
