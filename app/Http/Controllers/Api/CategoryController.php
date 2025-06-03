@@ -140,13 +140,23 @@ class CategoryController extends Controller
         }
     }
 
-
     /**
-     * Display the specified resource.
+     * Display the specified category.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
      */
-    public function show(Category $category)
+    public function show($id)
     {
-        //
+        try {
+            $category = Category::findOrFail($id);
+
+            return response()->json($category, 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Category not found'
+            ], 404);
+        }
     }
 
     /**
@@ -154,7 +164,18 @@ class CategoryController extends Controller
      */
     public function update(Request $request, Category $category)
     {
-        //
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string',
+                'slug' => 'required|unique:categories,slug,' . $category->id
+            ]);
+
+            $category->update($validated);
+
+            return response()->json($category, 200);
+        } catch (Exception $e) {
+            return response()->json(['error' => 'Failed to update category', 'message' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -162,6 +183,12 @@ class CategoryController extends Controller
      */
     public function destroy(Category $category)
     {
-        //
+        try {
+            $category->delete();
+
+            return response()->json(['message' => 'Category deleted successfully'], 200);
+        } catch (Exception $e) {
+            return response()->json(['error' => 'Failed to delete category', 'message' => $e->getMessage()], 500);
+        }
     }
 }
