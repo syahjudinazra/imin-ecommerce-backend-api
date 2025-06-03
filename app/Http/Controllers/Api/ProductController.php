@@ -56,21 +56,6 @@ class ProductController extends Controller
 
             $data = $query->paginate($perPage);
 
-            if ($data->isEmpty()) {
-                return response()->json([
-                    'message' => 'No products found',
-                    'data' => [
-                        'data' => [],
-                        'current_page' => 1,
-                        'last_page' => 1,
-                        'per_page' => $perPage,
-                        'total' => 0,
-                        'from' => null,
-                        'to' => null
-                    ]
-                ], 200);
-            }
-
             return response()->json([
                 'data' => $data,
                 'message' => 'Products retrieved successfully',

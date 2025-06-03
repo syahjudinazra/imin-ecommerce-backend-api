@@ -12,10 +12,10 @@ class CategoryController extends Controller
     /**
      * Display a listing of the resource.
      */
-   public function index(Request $request)
+    public function index(Request $request)
     {
         try {
-            $query = Category::paginate(5);
+            $query = Category::query();
 
             // Search functionality
             if ($request->has('search') && !empty($request->search)) {
@@ -41,27 +41,13 @@ class CategoryController extends Controller
                 $sortOrder = 'desc';
             }
 
+            $query->orderBy($sortBy, $sortOrder);
 
             // Pagination
             $perPage = $request->get('per_page', 5);
             $perPage = min(max($perPage, 1), 100);
 
             $data = $query->paginate($perPage);
-
-            if ($data->isEmpty()) {
-                return response()->json([
-                    'message' => 'No category found',
-                    'data' => [
-                        'data' => [],
-                        'current_page' => 1,
-                        'last_page' => 1,
-                        'per_page' => $perPage,
-                        'total' => 0,
-                        'from' => null,
-                        'to' => null
-                    ]
-                ], 200);
-            }
 
             return response()->json([
                 'data' => $data,
@@ -81,6 +67,7 @@ class CategoryController extends Controller
             ], 500);
         }
     }
+
 
     // Alternative method for more advanced search
     public function search(Request $request)
