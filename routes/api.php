@@ -20,10 +20,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
     //products
-<<<<<<< HEAD
     Route::apiResource('/products', ProductController::class);
-=======
->>>>>>> 3b88f01bb9ec2f09a403a11d9fbe477cf3e1ae7b
 
     // Category
     Route::apiResource('/categories', CategoryController::class);
