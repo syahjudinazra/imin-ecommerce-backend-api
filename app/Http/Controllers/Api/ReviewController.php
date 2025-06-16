@@ -2,215 +2,192 @@
 
 namespace App\Http\Controllers\Api;
 
+use DB;
 use App\Models\Review;
-use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class ReviewController extends Controller
 {
     /**
-     * Display a listing of reviews for a product.
+     * Display a listing of reviews
      */
-    public function index(Request $request, int $productId): JsonResponse
+    public function index(Request $request)
+    {
+        $query = Review::with(['user:id,name', 'product:id,name,image']);
+
+        // Add filters
+        if ($request->has('product_id')) {
+            $query->where('product_id', $request->product_id);
+        }
+
+        if ($request->has('rating')) {
+            $query->where('rating', $request->rating);
+        }
+
+        if ($request->has('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        // Sorting
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+        $query->orderBy($sortBy, $sortOrder);
+
+        // Pagination
+        $perPage = $request->get('per_page', 15);
+        $reviews = $query->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => $reviews->items(),
+            'meta' => [
+                'current_page' => $reviews->currentPage(),
+                'last_page' => $reviews->lastPage(),
+                'per_page' => $reviews->perPage(),
+                'total' => $reviews->total(),
+            ]
+        ]);
+    }
+
+    /**
+     * Get detailed review by ID
+     */
+    public function show($id)
     {
         try {
-            $product = Product::findOrFail($productId);
+            $review = Review::with([
+                'user:id,name,email,avatar',
+                'product:id,name,description,price,image,category_id',
+                'product.category:id,name'
+            ])->findOrFail($id);
 
-            $query = $product->reviews()->approved();
-
-            // Filter by rating if specified
-            if ($request->has('rating')) {
-                $query->withRating($request->rating);
-            }
-
-            // Filter by verified purchases
-            if ($request->boolean('verified_only')) {
-                $query->verified();
-            }
-
-            // Sort options
-            $sortBy = $request->get('sort', 'recent');
-            switch ($sortBy) {
-                case 'helpful':
-                    $query->orderByHelpfulness();
-                    break;
-                case 'rating_high':
-                    $query->orderBy('rating', 'desc');
-                    break;
-                case 'rating_low':
-                    $query->orderBy('rating', 'asc');
-                    break;
-                case 'oldest':
-                    $query->oldest();
-                    break;
-                default:
-                    $query->latest();
-            }
-
-            $reviews = $query->paginate($request->get('per_page', 10));
+            // Add additional review statistics
+            $reviewStats = [
+                'helpful_count' => $review->helpful_count ?? 0,
+                'total_votes' => $review->total_votes ?? 0,
+                'verified_purchase' => $review->verified_purchase ?? false,
+                'review_images' => $review->images ?? [],
+            ];
 
             return response()->json([
                 'success' => true,
-                'data' => $reviews,
-                'product' => [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'rating' => $product->rating,
-                    'review_count' => $product->review_count,
+                'data' => [
+                    'id' => $review->id,
+                    'rating' => $review->rating,
+                    'title' => $review->title,
+                    'comment' => $review->comment,
+                    'created_at' => $review->created_at,
+                    'updated_at' => $review->updated_at,
+                    'user' => $review->user,
+                    'product' => $review->product,
+                    'stats' => $reviewStats,
                 ]
             ]);
-        } catch (ModelNotFoundException $e) {
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Product not found'
-            ], 404);
+                'message' => 'Review not found',
+                'error' => $e->getMessage()
+            ], Response::HTTP_NOT_FOUND);
         }
     }
 
     /**
-     * Store a newly created review.
+     * Store a new review
      */
-    public function store(Request $request, int $productId): JsonResponse
+    public function store(Request $request)
     {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'rating' => 'required|integer|min:1|max:5',
+            'title' => 'required|string|max:255',
+            'comment' => 'required|string|max:1000',
+        ]);
+
         try {
-            $product = Product::findOrFail($productId);
-
-            $validator = Validator::make($request->all(), [
-                'rating' => 'required|numeric|min:1|max:5',
-                'title' => 'nullable|string|max:255',
-                'comment' => 'nullable|string|max:1000',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            // Check if user already reviewed this product
-            $existingReview = Review::where('product_id', $productId)
-                ->where('user_id', Auth::id())
-                ->first();
-
-            if ($existingReview) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You have already reviewed this product'
-                ], 409);
-            }
-
             $review = Review::create([
-                'product_id' => $productId,
-                'user_id' => Auth::id(),
+                'user_id' => auth()->id(),
+                'product_id' => $request->product_id,
                 'rating' => $request->rating,
                 'title' => $request->title,
                 'comment' => $request->comment,
-                'is_verified' => $this->isVerifiedPurchase($productId, Auth::id()),
+                'verified_purchase' => $this->checkVerifiedPurchase($request->product_id),
             ]);
+
+            $review->load(['user:id,name', 'product:id,name']);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Review created successfully',
-                'data' => $review->load('user')
-            ], 201);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Product not found'
-            ], 404);
-        }
-    }
-
-    /**
-     * Display the specified review.
-     */
-    public function show(int $reviewId): JsonResponse
-    {
-        try {
-            $review = Review::with(['user', 'product'])->findOrFail($reviewId);
-
-            return response()->json([
-                'success' => true,
                 'data' => $review
-            ]);
-        } catch (ModelNotFoundException $e) {
+            ], Response::HTTP_CREATED);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Review not found'
-            ], 404);
+                'message' => 'Failed to create review',
+                'error' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
-     * Update the specified review.
+     * Update an existing review
      */
-    public function update(Request $request, int $reviewId): JsonResponse
+    public function update(Request $request, $id)
     {
+        $request->validate([
+            'rating' => 'sometimes|integer|min:1|max:5',
+            'title' => 'sometimes|string|max:255',
+            'comment' => 'sometimes|string|max:1000',
+        ]);
+
         try {
-            $review = Review::findOrFail($reviewId);
+            $review = Review::findOrFail($id);
 
             // Check if user owns this review
-            if ($review->user_id !== Auth::id()) {
+            if ($review->user_id !== auth()->id()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized to update this review'
-                ], 403);
+                ], Response::HTTP_FORBIDDEN);
             }
 
-            $validator = Validator::make($request->all(), [
-                'rating' => 'required|numeric|min:1|max:5',
-                'title' => 'nullable|string|max:255',
-                'comment' => 'nullable|string|max:1000',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            $review->update([
-                'rating' => $request->rating,
-                'title' => $request->title,
-                'comment' => $request->comment,
-            ]);
+            $review->update($request->only(['rating', 'title', 'comment']));
+            $review->load(['user:id,name', 'product:id,name']);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Review updated successfully',
-                'data' => $review->load('user')
+                'data' => $review
             ]);
-        } catch (ModelNotFoundException $e) {
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Review not found'
-            ], 404);
+                'message' => 'Failed to update review',
+                'error' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
-     * Remove the specified review.
+     * Delete a review
      */
-    public function destroy(int $reviewId): JsonResponse
+    public function destroy($id)
     {
         try {
-            $review = Review::findOrFail($reviewId);
+            $review = Review::findOrFail($id);
 
             // Check if user owns this review or is admin
-            if ($review->user_id !== Auth::id() && !Auth::user()->isAdmin()) {
+            if ($review->user_id !== auth()->id() && !auth()->user()->hasRole('admin')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized to delete this review'
-                ], 403);
+                ], Response::HTTP_FORBIDDEN);
             }
 
             $review->delete();
@@ -219,146 +196,85 @@ class ReviewController extends Controller
                 'success' => true,
                 'message' => 'Review deleted successfully'
             ]);
-        } catch (ModelNotFoundException $e) {
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Review not found'
-            ], 404);
+                'message' => 'Failed to delete review',
+                'error' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
-     * Mark review as helpful.
+     * Get reviews for a specific product
      */
-    public function markHelpful(int $reviewId): JsonResponse
+    public function getProductReviews($productId, Request $request)
     {
-        try {
-            $review = Review::findOrFail($reviewId);
-            $userId = Auth::id();
+        $query = Review::with(['user:id,name'])
+            ->where('product_id', $productId);
 
-            if ($review->user_id === $userId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You cannot mark your own review as helpful'
-                ], 400);
-            }
-
-            $marked = $review->markHelpful($userId);
-
-            return response()->json([
-                'success' => true,
-                'message' => $marked ? 'Review marked as helpful' : 'Already marked as helpful',
-                'helpful_count' => $review->helpful_count
-            ]);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Review not found'
-            ], 404);
+        // Add filters
+        if ($request->has('rating')) {
+            $query->where('rating', $request->rating);
         }
-    }
 
-    /**
-     * Unmark review as helpful.
-     */
-    public function unmarkHelpful(int $reviewId): JsonResponse
-    {
-        try {
-            $review = Review::findOrFail($reviewId);
-            $userId = Auth::id();
+        // Sorting
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+        $query->orderBy($sortBy, $sortOrder);
 
-            $unmarked = $review->unmarkHelpful($userId);
+        // Pagination
+        $perPage = $request->get('per_page', 10);
+        $reviews = $query->paginate($perPage);
 
-            return response()->json([
-                'success' => true,
-                'message' => $unmarked ? 'Review unmarked as helpful' : 'Was not marked as helpful',
-                'helpful_count' => $review->helpful_count
-            ]);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Review not found'
-            ], 404);
-        }
-    }
+        // Get review statistics for the product
+        $reviewStats = Review::where('product_id', $productId)
+            ->selectRaw('
+                AVG(rating) as average_rating,
+                COUNT(*) as total_reviews,
+                SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as five_star,
+                SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as four_star,
+                SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as three_star,
+                SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as two_star,
+                SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as one_star
+            ')
+            ->first();
 
-    /**
-     * Get review statistics for a product.
-     */
-    public function statistics(int $productId): JsonResponse
-    {
-        try {
-            $product = Product::findOrFail($productId);
-
-            $reviews = $product->reviews()->approved();
-
-            $stats = [
-                'total_reviews' => $reviews->count(),
-                'average_rating' => $product->rating,
+        return response()->json([
+            'success' => true,
+            'data' => $reviews->items(),
+            'meta' => [
+                'current_page' => $reviews->currentPage(),
+                'last_page' => $reviews->lastPage(),
+                'per_page' => $reviews->perPage(),
+                'total' => $reviews->total(),
+            ],
+            'stats' => [
+                'average_rating' => round($reviewStats->average_rating, 1),
+                'total_reviews' => $reviewStats->total_reviews,
                 'rating_breakdown' => [
-                    '5' => $reviews->clone()->withRating(5)->count(),
-                    '4' => $reviews->clone()->withRating(4)->count(),
-                    '3' => $reviews->clone()->withRating(3)->count(),
-                    '2' => $reviews->clone()->withRating(2)->count(),
-                    '1' => $reviews->clone()->withRating(1)->count(),
-                ],
-                'verified_reviews' => $reviews->clone()->verified()->count(),
-                'recent_reviews' => $reviews->clone()->recent(30)->count(),
-            ];
-
-            return response()->json([
-                'success' => true,
-                'data' => $stats
-            ]);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Product not found'
-            ], 404);
-        }
+                    5 => $reviewStats->five_star,
+                    4 => $reviewStats->four_star,
+                    3 => $reviewStats->three_star,
+                    2 => $reviewStats->two_star,
+                    1 => $reviewStats->one_star,
+                ]
+            ]
+        ]);
     }
 
     /**
-     * Get user's review for a specific product.
+     * Check if user has purchased the product (for verified purchase badge)
      */
-    public function userReview(int $productId): JsonResponse
+    private function checkVerifiedPurchase($productId)
     {
-        try {
-            Product::findOrFail($productId);
-
-            $review = Review::where('product_id', $productId)
-                ->where('user_id', Auth::id())
-                ->with('user')
-                ->first();
-
-            return response()->json([
-                'success' => true,
-                'data' => $review
-            ]);
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Product not found'
-            ], 404);
-        }
-    }
-
-    /**
-     * Check if user has purchased the product (for verified reviews).
-     */
-    private function isVerifiedPurchase(int $productId, int $userId): bool
-    {
-        // This should check your orders/purchases table
-        // For now, returning false - implement based on your order system
-
-        // Example implementation:
-        // return Order::where('user_id', $userId)
-        //     ->whereHas('items', function($query) use ($productId) {
-        //         $query->where('product_id', $productId);
-        //     })
-        //     ->where('status', 'completed')
-        //     ->exists();
-
-        return false;
+        // This assumes you have orders and order_items tables
+        return DB::table('orders')
+            ->join('order_items', 'orders.id', '=', 'order_items.order_id')
+            ->where('orders.user_id', auth()->id())
+            ->where('order_items.product_id', $productId)
+            ->where('orders.status', 'completed')
+            ->exists();
     }
 }

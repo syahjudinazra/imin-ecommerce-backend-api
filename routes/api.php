@@ -35,8 +35,17 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('role:admin');
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
+
+    // Authenticated Review Routes
+    Route::post('/reviews', [ReviewController::class, 'store']);
+    Route::put('/reviews/{id}', [ReviewController::class, 'update']);
+    Route::delete('/reviews/{id}', [ReviewController::class, 'destroy']);
 });
 
-//Unauthenticated routes
-Route::apiResource('/reviews', ReviewController::class);
+// Unauthenticated routes
 Route::apiResource('/products', ProductController::class)->except('destroy');
+
+// Public Review Routes
+Route::get('/reviews', [ReviewController::class, 'index']);
+Route::get('/reviews/{id}', [ReviewController::class, 'show']);
+Route::get('/products/{id}/reviews', [ReviewController::class, 'getProductReviews']);
